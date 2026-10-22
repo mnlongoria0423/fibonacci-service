@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info:
+  title: Fibonacci Service
+  version: 1.0.0
+  description: Returns the first n Fibonacci numbers, starting from 0.
+servers:
+  - url: http://localhost:8080
+paths:
+  /v1/fibonacci:
+    get:
+      summary: First n Fibonacci numbers
+      parameters:
+        - name: n
+          in: query
+          required: true
+          description: How many numbers to return. Must be a base-10 integer between 0 and the configured maximum (default 10000).
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 10000
+          example: 5
+      responses:
+        '200':
+          description: >
+            JSON array of the first n Fibonacci numbers. Values beyond 2^53 are
+            emitted as exact JSON number literals; clients that need exact
+            values must parse with an arbitrary-precision JSON parser.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+                  minimum: 0
+              example: [0, 1, 1, 2, 3]
+        '400':
+          description: n is missing, repeated, not an integer, negative, or above the maximum.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: /problems/invalid-parameter
+                title: Invalid parameter
+                status: 400
+                detail: '"n" must be non-negative, got -1'
+                instance: /v1/fibonacci
+                parameter: n
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+  /healthz:
+    get:
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Process is running.
+          content:
+            application/json:
+              example: { status: ok }
+  /readyz:
+    get:
+      summary: Readiness probe
+      responses:
+        '200':
+          description: Ready to receive traffic.
+          content:
+            application/json:
+              example: { status: ready }
+        '503':
+          description: Draining for shutdown; route traffic elsewhere.
+          content:
+            application/json:
+              example: { status: shutting down }
+components:
+  headers:
+    RequestId:
+      description: Echoes a well-formed caller-supplied X-Request-Id, otherwise a generated UUID.
+      schema:
+        type: string
+  responses:
+    MethodNotAllowed:
+      description: HTTP method not supported; see the Allow header.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      description: RFC 9457 Problem Details.
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        parameter: { type: string }
+        maximum: { type: integer }
